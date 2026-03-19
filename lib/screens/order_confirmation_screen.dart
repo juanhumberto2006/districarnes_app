@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart';
+import 'orders_history_screen.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
-  const OrderConfirmationScreen({super.key});
+  final Map<String, dynamic>? orderData;
+  
+  const OrderConfirmationScreen({super.key, this.orderData});
 
   @override
   State<OrderConfirmationScreen> createState() => _OrderConfirmationScreenState();
@@ -11,10 +15,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  late String _orderNumber;
 
   @override
   void initState() {
     super.initState();
+    _orderNumber = 'DC-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
     _controller = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -142,9 +148,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          '#DC-98745',
-          style: TextStyle(
+        Text(
+          '#$_orderNumber',
+          style: const TextStyle(
             color: Color(0xFFE50615),
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -196,6 +202,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
   }
 
   Widget _buildOrderSummary() {
+    final orderData = widget.orderData;
+    final items = orderData?['items'] as List<dynamic>? ?? [];
+    final total = orderData?['total'] as double? ?? 0.0;
+    final subtotal = orderData?['subtotal'] as double? ?? 0.0;
+    final shipping = orderData?['shipping'] as double? ?? 0.0;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -217,31 +229,70 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
           ),
           child: Column(
             children: [
-              _buildOrderItem('Ojo de Bife Premium', 'x1 unidad', '\$18.500'),
-              _buildOrderItem('Entraña Premium', 'x1 unidad', '\$12.200'),
+              ...items.map((item) => _buildOrderItem(
+                item['nombre']?.toString() ?? 'Producto',
+                'x${item['quantity'] ?? 1} ${item['unidad'] ?? 'und'}',
+                '\$${((item['precio_venta'] ?? item['price'] ?? 0).toDouble() * (item['quantity'] ?? 1)).toStringAsFixed(0)}',
+              )),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE50615).withOpacity(0.05),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    const Text(
-                      'Total Pagado',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Subtotal',
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                        ),
+                        Text(
+                          '\$${subtotal.toStringAsFixed(0)}',
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                        ),
+                      ],
                     ),
-                    const Text(
-                      '\$30.700',
-                      style: TextStyle(
-                        color: Color(0xFFE50615),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Envío',
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                        ),
+                        Text(
+                          shipping == 0 ? 'GRATIS' : '\$${shipping.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: shipping == 0 ? Colors.green : Colors.grey.shade400, 
+                            fontSize: 12,
+                            fontWeight: shipping == 0 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Color(0xFFE50615), height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total Pagado',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '\$${total.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            color: Color(0xFFE50615),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -284,6 +335,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   detail,
@@ -309,6 +362,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
   }
 
   Widget _buildShippingAddress() {
+    final orderData = widget.orderData;
+    final name = orderData?['name'] as String? ?? '';
+    final address = orderData?['address'] as String? ?? '';
+    final city = orderData?['city'] as String? ?? '';
+    final phone = orderData?['phone'] as String? ?? '';
+    
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
@@ -332,28 +391,42 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
               border: Border.all(color: Colors.grey.shade800),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.location_on, color: Color(0xFFE50615)),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Casa - Trabajo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name.isNotEmpty ? name : 'Cliente',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Av. Libertador 1250, Piso 4B, CABA',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 12,
+                      const SizedBox(height: 4),
+                      Text(
+                        '$address, $city',
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          phone,
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -372,7 +445,13 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
             width: double.infinity,
             height: 56,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const OrdersHistoryScreen()),
+                  (route) => false,
+                );
+              },
               icon: const Icon(Icons.local_shipping),
               label: const Text('SEGUIR PEDIDO'),
               style: ElevatedButton.styleFrom(
@@ -389,7 +468,13 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
             width: double.infinity,
             height: 48,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  (route) => false,
+                );
+              },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 side: BorderSide(color: Colors.grey.shade700),

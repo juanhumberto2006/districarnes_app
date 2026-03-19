@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class OrderDetailScreen extends StatefulWidget {
-  const OrderDetailScreen({super.key});
+  final Map<String, dynamic>? orderData;
+  
+  const OrderDetailScreen({super.key, this.orderData});
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();

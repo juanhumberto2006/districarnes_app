@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
+import '../services/paypal_service.dart';
 import 'order_confirmation_screen.dart';
+import 'paypal_payment_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -232,12 +234,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           const SizedBox(height: 16),
           _buildPaymentOption(0, 'PayPal', 'Pago seguro con PayPal', '', false),
-          const SizedBox(height: 12),
-          _buildPaymentOption(1, 'Visa', '**** 4242', '12/26', true),
-          const SizedBox(height: 12),
-          _buildPaymentOption(2, 'Mastercard', '**** 8890', '08/25', false),
-          const SizedBox(height: 12),
-          _buildPaymentOption(3, 'Mercado Pago', 'Billetera virtual', '', false),
         ],
       ),
     );
@@ -467,6 +463,94 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<void> _processPayment() async {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa tu nombre'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa tu teléfono'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa tu dirección'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_cityController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa tu ciudad'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE50615)),
+      ),
+    );
+
+    try {
+      final orderNumber = 'DC-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      final amountInUsd = total / 4500;
+
+      final result = await payPalService.processPayment(amountInUsd, orderNumber);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (result['success'] && result['approvalUrl'] != null) {
+        final orderData = {
+          'items': cartService.items.map((item) => Map<String, dynamic>.from(item)).toList(),
+          'subtotal': subtotal,
+          'shipping': shipping,
+          'total': total,
+          'name': _nameController.text,
+          'phone': _phoneController.text,
+          'address': _addressController.text,
+          'city': _cityController.text,
+          'notes': _notesController.text,
+          'orderNumber': orderNumber,
+          'paypalOrderId': result['orderId'],
+        };
+
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PayPalPaymentScreen(
+              approvalUrl: result['approvalUrl'],
+              orderData: orderData,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${result['message'] ?? "No se pudo crear el pago"}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error en el pago: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -484,53 +568,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  if (_nameController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Por favor ingresa tu nombre'), backgroundColor: Colors.red),
-                    );
-                    return;
-                  }
-                  if (_phoneController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Por favor ingresa tu teléfono'), backgroundColor: Colors.red),
-                    );
-                    return;
-                  }
-                  if (_addressController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Por favor ingresa tu dirección'), backgroundColor: Colors.red),
-                    );
-                    return;
-                  }
-                  if (_cityController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Por favor ingresa tu ciudad'), backgroundColor: Colors.red),
-                    );
-                    return;
-                  }
-                  
-                  // Mostrar mensaje de procesamiento
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFE50615)),
-                    ),
-                  );
-                  
-                  // Simular procesamiento de pago con PayPal
-                  Future.delayed(const Duration(seconds: 2), () {
-                    Navigator.pop(context); // Cerrar loading
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const OrderConfirmationScreen()),
-                    );
-                  });
-                },
+                onPressed: _processPayment,
                 icon: const Icon(Icons.lock),
                 label: const Text(
-                  'CONFIRMAR Y PAGAR',
+                  'PAGAR CON PAYPAL',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -557,7 +598,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Pago 100% seguro con encriptación SSL',
+                  'Pago 100% seguro con PayPal',
                   style: TextStyle(
                     color: Colors.grey.shade500,
                     fontSize: 10,

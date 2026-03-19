@@ -107,21 +107,31 @@ class _CartScreenState extends State<CartScreen> {
     final double price = (item['precio_venta'] ?? item['price'] ?? 0).toDouble();
     int quantity = item['quantity'] ?? 1;
 
-    // Get image URL - try cached first, then from database
+    // Get image URL - try multiple field names
     String imageUrl = '';
+    
+    // Try cached image first
     final cachedImageUrl = item['_cachedImageUrl']?.toString();
     if (cachedImageUrl != null && cachedImageUrl.isNotEmpty) {
       imageUrl = cachedImageUrl;
-    } else {
-      final imagePath = item['imagen']?.toString() ?? item['imagen_producto']?.toString() ?? '';
-      if (imagePath.isNotEmpty) {
-        if (imagePath.startsWith('http')) {
-          imageUrl = imagePath;
-        } else if (imagePath.startsWith('/')) {
-          final fileName = imagePath.split('/').last;
-          imageUrl = '/images/products/$fileName';
-        } else {
-          imageUrl = '/images/products/$imagePath';
+    }
+    
+    // Try multiple possible image field names
+    if (imageUrl.isEmpty) {
+      final imageFields = ['imagen', 'imagen_producto', 'producto_foto', 'foto', 'url_imagen', 'imagen_url', 'image', 'image_url'];
+      for (final field in imageFields) {
+        final imagePath = item[field]?.toString();
+        if (imagePath != null && imagePath.isNotEmpty) {
+          if (imagePath.startsWith('http')) {
+            imageUrl = imagePath;
+            break;
+          } else if (imagePath.startsWith('/')) {
+            imageUrl = 'https://neyefaqbgrnhwglefabq.supabase.co/storage/v1/object/public/images${imagePath}';
+            break;
+          } else {
+            imageUrl = 'https://neyefaqbgrnhwglefabq.supabase.co/storage/v1/object/public/images/products/$imagePath';
+            break;
+          }
         }
       }
     }

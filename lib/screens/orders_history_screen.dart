@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../services/supabase_service.dart';
+import 'home_screen.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
   const OrdersHistoryScreen({super.key});
@@ -9,6 +12,63 @@ class OrdersHistoryScreen extends StatefulWidget {
 
 class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
   int _selectedTab = 0;
+  List<Map<String, dynamic>> _activeOrders = [];
+  List<Map<String, dynamic>> _completedOrders = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userId = authService.currentUser?['id_usuario'];
+      print('Cargando pedidos para usuario: $userId');
+
+      if (userId != null) {
+        final response = await supabaseService.client
+            .from('pedido')
+            .select()
+            .eq('id_usuario', userId)
+            .order('created_at', ascending: false);
+
+        print('Pedidos encontrados: ${response.length}');
+
+        final allOrders = List<Map<String, dynamic>>.from(response);
+
+        final active = allOrders.where((order) {
+          final estado = order['estado_pedido']?.toString().toLowerCase() ?? '';
+          return estado == 'pendiente' || estado == 'preparando' || estado == 'enviado' || estado == 'en camino';
+        }).toList();
+
+        final completed = allOrders.where((order) {
+          final estado = order['estado_pedido']?.toString().toLowerCase() ?? '';
+          return estado == 'entregado' || estado == 'completado' || estado == 'cancelado';
+        }).toList();
+
+        setState(() {
+          _activeOrders = active;
+          _completedOrders = completed;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error cargando pedidos: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,29 +178,142 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
   }
 
   Widget _buildActiveOrders() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'ACTIVOS AHORA',
-            style: TextStyle(
-              color: Color(0xFFBB9B9D),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE50615)),
+      );
+    }
+
+    if (_activeOrders.isEmpty) {
+      return _buildEmptyState('No tienes pedidos activos');
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      color: const Color(0xFFE50615),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'PEDIDOS ACTIVOS',
+              style: TextStyle(
+                color: Color(0xFFBB9B9D),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
             ),
+            const SizedBox(height: 16),
+            ..._activeOrders.map((order) => _buildActiveOrderCard(order)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompletedOrders() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE50615)),
+      );
+    }
+
+    if (_completedOrders.isEmpty) {
+      return _buildEmptyState('No tienes pedidos completados');
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      color: const Color(0xFFE50615),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'HISTORIAL RECIENTE',
+              style: TextStyle(
+                color: Color(0xFFBB9B9D),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._completedOrders.map((order) => _buildCompletedOrderCard(order)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long,
+            size: 64,
+            color: Colors.grey.shade700,
           ),
           const SizedBox(height: 16),
-          _buildActiveOrderCard(),
+          Text(
+            message,
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE50615),
+            ),
+            child: const Text('Ir a comprar'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActiveOrderCard() {
+  Widget _buildActiveOrderCard(Map<String, dynamic> order) {
+    final orderNumber = order['numero_pedido'] ?? 'DC-000';
+    final estado = order['estado_pedido']?.toString() ?? 'pendiente';
+    final items = order['items'] as List<dynamic>? ?? [];
+    final createdAt = order['created_at'] != null 
+        ? DateTime.tryParse(order['created_at'].toString()) 
+        : null;
+    
+    String dateStr = '';
+    if (createdAt != null) {
+      dateStr = '${createdAt.day} ${_getMonthName(createdAt.month)}, ${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}';
+    }
+
+    String statusText = 'En proceso';
+    Color statusColor = Colors.orange;
+    if (estado.toLowerCase() == 'pendiente') {
+      statusText = 'Pendiente';
+      statusColor = Colors.orange;
+    } else if (estado.toLowerCase() == 'preparando') {
+      statusText = 'Preparando';
+      statusColor = Colors.blue;
+    } else if (estado.toLowerCase() == 'enviado' || estado.toLowerCase() == 'en camino') {
+      statusText = 'En camino';
+      statusColor = Colors.green;
+    }
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF1A0F0F),
         borderRadius: BorderRadius.circular(12),
@@ -174,7 +347,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
-                            'ORDEN ACTUAL',
+                            'PEDIDO ACTIVO',
                             style: TextStyle(
                               color: Color(0xFFE50615),
                               fontSize: 10,
@@ -183,16 +356,16 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          '#DC-98745',
-                          style: TextStyle(
+                        Text(
+                          '#$orderNumber',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          '12 Oct, 18:30 - 3 productos',
+                          '$dateStr - ${items.length} productos',
                           style: TextStyle(
                             color: const Color(0xFFBB9B9D),
                             fontSize: 12,
@@ -203,16 +376,16 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.green.withOpacity(0.2),
+                          color: statusColor.withOpacity(0.2),
                         ),
                       ),
-                      child: const Text(
-                        'En camino',
+                      child: Text(
+                        statusText,
                         style: TextStyle(
-                          color: Colors.green,
+                          color: statusColor,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -223,60 +396,16 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey[800],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          'https://lh3.googleusercontent.com/aida-public/AB6AXuD1ILdbpSzoBId3oMZtaDccMTsv92v5vn7ti-_zCG0RwJ9elmLrFCOvPqZCzKNxTxBBt2ji6mAfYJ2uhRKsGI79p5cY6rOkkrksz3zD-lHVMCZGY5votSieGNgtcTjs0L0C_Din842sD9cyCpTUpcIn8DYvQO0DR_Je6GewBU80_G21SY2M4WMzxm5v48jQwtXG6jibh9Utad2-d3R_W6hgcV_u_ll8mO1a16IC4nGoOeHjA66M31SGHh3tXkUTqZy3LKUd0byUEI3b',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey[800],
-                              child: const Icon(Icons.image, color: Colors.grey),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Ojo de Bife + 2 más',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            '\$85.500',
-                            style: TextStyle(
-                              color: Color(0xFFE50615),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const OrdersHistoryScreen(),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE50615),
                           foregroundColor: Colors.white,
@@ -293,17 +422,6 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade700),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.map, color: Color(0xFFBB9B9D)),
-                      ),
-                    ),
                   ],
                 ),
               ],
@@ -314,48 +432,38 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
     );
   }
 
-  Widget _buildCompletedOrders() {
-    final orders = [
-      {
-        'id': '#DC-98612',
-        'date': '05 Oct, 12:15',
-        'items': 1,
-        'product': 'Picaña Premium x 1kg',
-        'price': 120000,
-        'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuCWbNxGSkhGwYo6lIoitXriKwDhQEBb2v7nJMc1S2B6-p6ewKNWnqSdgFtvImIYqP-qNYkEWrBw43PSF6eKowBILqC_cyoEE3DvUj5zkTrpAqdbMpAXMxRGYA77VXYhb3UeLP1eLYmExNQ_zWRxevT7OfXSkRTBUqmC2F3lxoGGqnoTQuh-XQa0cwo04pASPlIRiYOSlIiqtPQ2jgn_CEqKlXvFyxxljr-47fmlGjvC5_6wRpklxtPLna-cWLF-yNqn6IciYFHnEQej',
-      },
-      {
-        'id': '#DC-98401',
-        'date': '28 Sep, 19:45',
-        'items': 5,
-        'product': 'Combo Parrillero Familiar',
-        'price': 215000,
-        'image': 'https://lh3.googleusercontent.com/aida-public/AB6AXuDjlKoi1RVU4smWRbQNAP2o8jksdtv3HRGV4mcbxresjyXFkXkNykH8UGNwsreTVwHmSsFli3C8EU9mlAX44d885qwqEM6GR-OFelDSdfhidZiQFdnjGcLRzLGqYXP3SoECLSrjy81bI6PUf3DNYSoygtUxGPoVEXi0DbgHZ3Q-y9xmtVCGea1p0pxCsptrF1fwPnvK4kQlF5N9Ecvm5ff1xznILH7',
-      },
-    ];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'HISTORIAL RECIENTE',
-            style: TextStyle(
-              color: Color(0xFFBB9B9D),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...orders.map((order) => _buildCompletedOrderCard(order)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCompletedOrderCard(Map<String, dynamic> order) {
+    final orderNumber = order['numero_pedido'] ?? 'DC-000';
+    final total = (order['total'] ?? 0).toDouble();
+    final estado = order['estado_pedido']?.toString() ?? 'completado';
+    final items = order['items'] as List<dynamic>? ?? [];
+    final createdAt = order['created_at'] != null 
+        ? DateTime.tryParse(order['created_at'].toString()) 
+        : null;
+    
+    String dateStr = '';
+    if (createdAt != null) {
+      dateStr = '${createdAt.day} ${_getMonthName(createdAt.month)}, ${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}';
+    }
+
+    String statusText = 'Entregado';
+    Color statusColor = Colors.grey;
+    if (estado.toLowerCase() == 'entregado' || estado.toLowerCase() == 'completado') {
+      statusText = 'Entregado';
+      statusColor = Colors.green;
+    } else if (estado.toLowerCase() == 'cancelado') {
+      statusText = 'Cancelado';
+      statusColor = Colors.red;
+    }
+
+    String firstProduct = 'Productos';
+    if (items.isNotEmpty) {
+      firstProduct = items.first['nombre']?.toString() ?? 'Producto';
+      if (items.length > 1) {
+        firstProduct += ' +${items.length - 1} más';
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -375,7 +483,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    order['id'],
+                    '#$orderNumber',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -383,7 +491,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                     ),
                   ),
                   Text(
-                    '${order['date']} - ${order['items']} prod',
+                    '$dateStr - ${items.length} prod',
                     style: TextStyle(
                       color: const Color(0xFFBB9B9D),
                       fontSize: 12,
@@ -394,13 +502,13 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade800.withOpacity(0.3),
+                  color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'Entregado',
+                child: Text(
+                  statusText,
                   style: TextStyle(
-                    color: Colors.grey,
+                    color: statusColor,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -418,25 +526,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                   borderRadius: BorderRadius.circular(8),
                   color: Colors.grey[800],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.grey,
-                      BlendMode.saturation,
-                    ),
-                    child: Image.network(
-                      order['image'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[800],
-                          child: const Icon(Icons.image, color: Colors.grey),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+                child: const Icon(Icons.restaurant, color: Color(0xFFE50615)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -444,7 +534,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order['product'],
+                      firstProduct,
                       style: TextStyle(
                         color: Colors.grey.shade300,
                         fontSize: 14,
@@ -453,7 +543,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '\$${order['price']}',
+                      '\$${total.toStringAsFixed(0)}',
                       style: const TextStyle(
                         color: Color(0xFFE50615),
                         fontSize: 16,
@@ -464,7 +554,14 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                 ),
               ),
               OutlinedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const OrdersHistoryScreen(),
+                    ),
+                  );
+                },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE50615)),
                   shape: RoundedRectangleBorder(
@@ -472,7 +569,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Repetir',
+                  'Ver',
                   style: TextStyle(
                     color: Color(0xFFE50615),
                     fontSize: 12,
@@ -484,5 +581,13 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
         ],
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
+    return months[month - 1];
   }
 }

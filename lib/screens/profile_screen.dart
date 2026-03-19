@@ -39,11 +39,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _isLoggedIn = authService.isLoggedIn;
       if (authService.currentUser != null) {
-        _userName = authService.currentUser!['usuario_nombre'] ?? 
-                     authService.currentUser!['nombre'] ?? 
-                     authService.currentUser!['name'] ?? '';
-        _userEmail = authService.currentUser!['email'] ?? '';
-        _userPhone = authService.currentUser!['telefono'] ?? 
+        _userName = authService.currentUser!['nombres_completos'] ?? 
+                     authService.currentUser!['usuario_usuario'] ?? 
+                     authService.currentUser!['name'] ?? 
+                     authService.currentUser!['usuario_nombre'] ?? '';
+        _userEmail = authService.currentUser!['correo_electronico'] ?? 
+                     authService.currentUser!['email'] ?? '';
+        _userPhone = authService.currentUser!['celular'] ?? 
+                     authService.currentUser!['telefono'] ?? 
                      authService.currentUser!['phone'] ?? 
                      '';
       }
@@ -136,6 +139,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildUserInfo() {
+    final userPhoto = authService.currentUser?['usuario_foto'] as String?;
+    
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -152,12 +157,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 2,
                   ),
                   color: const Color(0xFF1A0A0A),
+                  image: userPhoto != null && userPhoto.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(userPhoto),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: const Icon(
-                  Icons.person,
-                  size: 60,
-                  color: Color(0xFFE50615),
-                ),
+                child: (userPhoto == null || userPhoto.isEmpty)
+                    ? const Icon(
+                        Icons.person,
+                        size: 60,
+                        color: Color(0xFFE50615),
+                      )
+                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -300,23 +313,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildMenuList() {
     final menuItems = [
-      {'icon': Icons.shopping_bag, 'title': 'Mis Pedidos'},
-      {'icon': Icons.location_on, 'title': 'Direcciones de Envío'},
-      {'icon': Icons.credit_card, 'title': 'Métodos de Pago'},
-      {'icon': Icons.sell, 'title': 'Cupones y Promociones'},
-      {'icon': Icons.notifications, 'title': 'Notificaciones'},
-      {'icon': Icons.help, 'title': 'Ayuda y Soporte'},
+      {'icon': Icons.shopping_bag, 'title': 'Mis Pedidos', 'screen': const OrdersHistoryScreen()},
+      {'icon': Icons.location_on, 'title': 'Direcciones de Envío', 'screen': const ShippingAddressesScreen()},
+      {'icon': Icons.credit_card, 'title': 'Métodos de Pago', 'screen': const PaymentMethodsScreen()},
+      {'icon': Icons.sell, 'title': 'Cupones y Promociones', 'screen': const CouponsScreen()},
+      {'icon': Icons.notifications, 'title': 'Notificaciones', 'screen': const NotificationsScreen()},
+      {'icon': Icons.help, 'title': 'Ayuda y Soporte', 'screen': const HelpSupportScreen()},
     ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
-        children: menuItems.map((item) => _buildMenuItem(item['icon'] as IconData, item['title'] as String)).toList(),
+        children: menuItems.map((item) => _buildMenuItem(item['icon'] as IconData, item['title'] as String, item['screen'] as Widget)).toList(),
       ),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title) {
+  Widget _buildMenuItem(IconData icon, String title, Widget screen) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -326,7 +339,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       child: ListTile(
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => screen),
+          );
+        },
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         leading: Container(
           width: 40,

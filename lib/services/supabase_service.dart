@@ -160,11 +160,33 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getUserOrders(int userId) async {
-    return [];
+    try {
+      if (!_isInitialized) await init();
+      
+      final response = await _client.from('pedido').select()
+        .eq('id_usuario', userId)
+        .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error fetching orders: $e');
+      return [];
+    }
   }
 
   Future<bool> createOrder(int userId, double total, String shippingAddress) async {
     return false;
+  }
+
+  Future<Map<String, dynamic>?> saveOrder(Map<String, dynamic> orderData) async {
+    try {
+      if (!_isInitialized) await init();
+      
+      final response = await _client.from('pedido').insert(orderData).select().maybeSingle();
+      return response;
+    } catch (e) {
+      print('Error saving order: $e');
+      return null;
+    }
   }
 
   Future<void> signOut() async {}
