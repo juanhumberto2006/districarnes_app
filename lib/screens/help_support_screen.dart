@@ -262,7 +262,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          ...faqs.map((faq) => _buildFAQItem(faq['icon'], faq['title'], faq['answer'])),
+          ...faqs.map((faq) => _buildFAQItem(faq['icon'] as IconData, faq['title'] as String, faq['answer'] as String)),
         ],
       ),
     );

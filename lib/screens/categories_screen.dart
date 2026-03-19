@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
+import 'home_screen.dart';
+import 'cart_screen.dart';
+import 'offers_screen.dart';
+import 'profile_screen.dart';
+import 'favorites_screen.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -250,12 +255,11 @@ class CategoriesScreen extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFE50615),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE50615).withOpacity(0.3),
+            color: const Color(0xFFE50615).withOpacity(0.4),
             blurRadius: 20,
-            offset: const Offset(0, -4),
+            offset: const Offset(0, -5),
           ),
         ],
       ),
@@ -265,11 +269,11 @@ class CategoriesScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home, 'Inicio', false),
-              _buildNavItem(Icons.grid_view, 'Categorías', true),
+              _buildNavItem(context, Icons.home, 'INICIO', 0, false),
+              _buildNavItem(context, Icons.grid_view, 'CATEGORÍAS', 1, true),
               _buildCartNavItem(context),
-              _buildNavItem(Icons.favorite, 'Favoritos', false),
-              _buildNavItem(Icons.person, 'Perfil', false),
+              _buildNavItem(context, Icons.sell, 'OFERTAS', 3, false),
+              _buildNavItem(context, Icons.person, 'CUENTA', 4, false),
             ],
           ),
         ),
@@ -277,49 +281,84 @@ class CategoriesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? Colors.white : Colors.white70,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
-            fontSize: 10,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+  Widget _buildNavItem(BuildContext context, IconData icon, String label, int index, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        switch (index) {
+          case 0:
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+            break;
+          case 1:
+            break;
+          case 3:
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OffersScreen()));
+            break;
+          case 4:
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+            break;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+            size: 24,
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+              fontSize: 8,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildCartNavItem(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(bottom: 4),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFE50615),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CartScreen()));
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 52,
+            width: 52,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                ),
+              ],
+              border: Border.all(color: const Color(0xFFE50615), width: 3),
+            ),
+            child: const Icon(
+              Icons.shopping_cart,
+              color: Color(0xFFE50615),
+              size: 26,
             ),
           ),
-          child: const Icon(
-            Icons.shopping_cart,
-            color: Color(0xFFE50615),
-            size: 24,
+          const SizedBox(height: 2),
+          const Text(
+            'CARRITO',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

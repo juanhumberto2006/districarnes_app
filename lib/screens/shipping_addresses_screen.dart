@@ -10,7 +10,7 @@ class ShippingAddressesScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -49,11 +49,11 @@ class ShippingAddressesScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomSheet: _buildAddButton(),
+      bottomSheet: _buildAddButton(context),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext ctx) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Row(
@@ -64,7 +64,7 @@ class ShippingAddressesScreen extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               icon: const Icon(Icons.arrow_back, color: Color(0xFFE50615)),
             ),
           ),
@@ -302,7 +302,7 @@ class ShippingAddressesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAddButton() {
+  Widget _buildAddButton(BuildContext ctx) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

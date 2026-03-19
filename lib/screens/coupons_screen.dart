@@ -169,12 +169,12 @@ class _CouponsScreenState extends State<CouponsScreen> {
       itemBuilder: (context, index) {
         final coupon = coupons[index];
         return _buildCouponCard(
-          code: coupon['code'],
-          discount: coupon['discount'],
-          title: coupon['title'],
-          description: coupon['description'],
-          minPurchase: coupon['minPurchase'],
-          validUntil: coupon['validUntil'],
+          code: coupon['code'] as String,
+          discount: coupon['discount'] as String,
+          title: coupon['title'] as String,
+          description: coupon['description'] as String,
+          minPurchase: coupon['minPurchase'] as int,
+          validUntil: coupon['validUntil'] as String,
         );
       },
     );
@@ -202,10 +202,10 @@ class _CouponsScreenState extends State<CouponsScreen> {
       itemBuilder: (context, index) {
         final coupon = usedCoupons[index];
         return _buildUsedCouponCard(
-          code: coupon['code'],
-          discount: coupon['discount'],
-          title: coupon['title'],
-          usedDate: coupon['usedDate'],
+          code: coupon['code'] as String,
+          discount: coupon['discount'] as String,
+          title: coupon['title'] as String,
+          usedDate: coupon['usedDate'] as String,
         );
       },
     );

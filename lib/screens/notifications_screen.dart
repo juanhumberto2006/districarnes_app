@@ -151,12 +151,12 @@ class NotificationsScreen extends StatelessWidget {
       itemBuilder: (context, index) {
         final notification = notifications[index];
         return _buildNotificationItem(
-          icon: notification['icon'],
-          title: notification['title'],
-          message: notification['message'],
-          time: notification['time'],
-          unread: notification['unread'],
-          filled: notification['filled'],
+          icon: notification['icon'] as IconData,
+          title: notification['title'] as String,
+          message: notification['message'] as String,
+          time: notification['time'] as String,
+          unread: notification['unread'] as bool,
+          filled: notification['filled'] as bool,
         );
       },
     );

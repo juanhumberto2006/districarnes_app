@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'screens/home_screen.dart';
+import 'services/supabase_service.dart';
+import 'services/auth_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await Supabase.initialize(
+    url: 'https://neyefaqbgrnhwglefabq.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5leWVmYXFiZ3JuaHdnbGVmYWJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDM1ODgsImV4cCI6MjA4Nzc3OTU4OH0.2L2Cod8-jtZKJtiwxZjsvXw_24xYks3p18F4d4qovAM',
+  );
+  
+  await supabaseService.init();
+  await authService.init();
+  
   runApp(const DistriCarnesApp());
 }
 
@@ -21,7 +34,7 @@ class DistriCarnesApp extends StatelessWidget {
         ),
         fontFamily: 'Work Sans',
       ),
-      home: const LoginScreen(),
+      home: const HomeScreen(),
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/cart_service.dart';
+import 'order_confirmation_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -13,6 +15,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _cityController = TextEditingController();
   final _postalController = TextEditingController();
   final _notesController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+
+  double get subtotal => cartService.subtotal;
+  double get shipping => subtotal > 50000 ? 0 : 3500;
+  double get total => subtotal + shipping;
+
+  String _getItemImage(Map<String, dynamic> item) {
+    final cachedImageUrl = item['_cachedImageUrl']?.toString();
+    if (cachedImageUrl != null && cachedImageUrl.isNotEmpty) return cachedImageUrl;
+    
+    final imagePath = item['imagen']?.toString() ?? item['imagen_producto']?.toString() ?? '';
+    if (imagePath.isNotEmpty) {
+      if (imagePath.startsWith('http')) return imagePath;
+      final fileName = imagePath.split('/').last;
+      return '/images/products/$fileName';
+    }
+    
+    final categoryId = item['id_categoria'];
+    String categoryKey = 'OTROS';
+    if (categoryId != null) {
+      if (categoryId == 1 || categoryId.toString() == '1') categoryKey = 'RES';
+      else if (categoryId == 2 || categoryId.toString() == '2') categoryKey = 'CERDO';
+      else if (categoryId == 3 || categoryId.toString() == '3') categoryKey = 'POLLO';
+      else if (categoryId == 4 || categoryId.toString() == '4') categoryKey = 'EMBUTIDOS';
+    }
+    return _getDefaultImage(categoryKey);
+  }
+
+  String _getDefaultImage(String category) {
+    final Map<String, String> defaultImages = {
+      'RES': 'https://images.unsplash.com/photo-1603048297172-c92544798d5e?w=400&q=80',
+      'CERDO': 'https://images.unsplash.com/photo-1606851181064-d6a567a5f8d4?w=400&q=80',
+      'POLLO': 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=400&q=80',
+      'EMBUTIDOS': 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=400&q=80',
+      'OTROS': 'https://images.unsplash.com/photo-1606850780554-b55d26756aa3?w=400&q=80',
+    };
+    return defaultImages[category] ?? defaultImages['OTROS']!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,15 +147,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             child: Column(
               children: [
-                _buildInputField('Dirección de Entrega', 'Calle 123 #45-67, Bogotá', _addressController),
+                _buildInputField('Nombre Completo', 'Tu nombre completo', _nameController),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildInputField('Ciudad', 'Bogotá', _cityController)),
+                    Expanded(child: _buildInputField('Teléfono', '300 123 4567', _phoneController)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildInputField('Código Postal', 'Opcional', _postalController)),
+                    Expanded(child: _buildInputField('Ciudad', 'Bogotá', _cityController)),
                   ],
                 ),
+                const SizedBox(height: 16),
+                _buildInputField('Dirección de Entrega', 'Calle 123 #45-67, Bogotá', _addressController),
                 const SizedBox(height: 16),
                 _buildInputField('Notas o Instrucciones', 'Por ejemplo: timbre verde, casa blanca...', _notesController, maxLines: 3),
               ],
@@ -188,11 +231,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildPaymentOption(0, 'Visa', '**** 4242', '12/26', true),
+          _buildPaymentOption(0, 'PayPal', 'Pago seguro con PayPal', '', false),
           const SizedBox(height: 12),
-          _buildPaymentOption(1, 'Mastercard', '**** 8890', '08/25', false),
+          _buildPaymentOption(1, 'Visa', '**** 4242', '12/26', true),
           const SizedBox(height: 12),
-          _buildPaymentOption(2, 'Mercado Pago', 'Billetera virtual', '', false),
+          _buildPaymentOption(2, 'Mastercard', '**** 8890', '08/25', false),
+          const SizedBox(height: 12),
+          _buildPaymentOption(3, 'Mercado Pago', 'Billetera virtual', '', false),
         ],
       ),
     );
@@ -217,14 +262,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: 48,
               height: 32,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: name == 'PayPal' ? Colors.blue : Colors.white,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Center(
                 child: Text(
-                  name == 'Visa' ? 'VISA' : name == 'Mastercard' ? 'MC' : 'MP',
+                  name == 'PayPal' ? 'PP' : name == 'Visa' ? 'VISA' : name == 'Mastercard' ? 'MC' : 'MP',
                   style: TextStyle(
-                    color: name == 'Mercado Pago' ? Colors.blue : Colors.black,
+                    color: name == 'Mercado Pago' ? Colors.blue : (name == 'PayPal' ? Colors.white : Colors.black),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -298,16 +343,71 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // Mostrar productos del carrito
+            ...cartService.items.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final name = item['nombre']?.toString() ?? 'Producto';
+              final price = (item['precio_venta'] ?? item['price'] ?? 0).toDouble();
+              final quantity = item['quantity'] ?? 1;
+              final imageUrl = _getItemImage(item);
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 50,
+                          height: 50,
+                          color: Colors.grey[800],
+                          child: const Icon(Icons.image, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Cantidad: $quantity',
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '\$${(price * quantity).toStringAsFixed(0)}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Subtotal',
+                  'Subtotal (${cartService.itemCount} productos)',
                   style: TextStyle(color: Colors.grey.shade500),
                 ),
-                const Text(
-                  '\$ 145.900',
-                  style: TextStyle(color: Colors.white),
+                Text(
+                  '\$ ${subtotal.toStringAsFixed(0)}',
+                  style: const TextStyle(color: Colors.white),
                 ),
               ],
             ),
@@ -316,19 +416,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Envío Premium',
+                  'Envío',
                   style: TextStyle(color: Colors.grey.shade500),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.2),
+                    color: shipping == 0 ? Colors.green.withOpacity(0.2) : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
-                    'GRATIS',
+                  child: Text(
+                    shipping == 0 ? 'GRATIS' : '\$ ${shipping.toStringAsFixed(0)}',
                     style: TextStyle(
-                      color: Colors.green,
+                      color: shipping == 0 ? Colors.green : Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -351,9 +451,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Text(
-                  '\$ 145.900',
-                  style: TextStyle(
+                Text(
+                  '\$ ${total.toStringAsFixed(0)}',
+                  style: const TextStyle(
                     color: Color(0xFFE50615),
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -384,7 +484,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  if (_nameController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor ingresa tu nombre'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  if (_phoneController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor ingresa tu teléfono'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  if (_addressController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor ingresa tu dirección'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  if (_cityController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor ingresa tu ciudad'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  
+                  // Mostrar mensaje de procesamiento
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(color: Color(0xFFE50615)),
+                    ),
+                  );
+                  
+                  // Simular procesamiento de pago con PayPal
+                  Future.delayed(const Duration(seconds: 2), () {
+                    Navigator.pop(context); // Cerrar loading
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const OrderConfirmationScreen()),
+                    );
+                  });
+                },
                 icon: const Icon(Icons.lock),
                 label: const Text(
                   'CONFIRMAR Y PAGAR',

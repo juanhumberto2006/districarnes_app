@@ -329,11 +329,11 @@ class _OrdersScreenState extends State<OrdersScreen>
       itemBuilder: (context, index) {
         final order = orders[index];
         return _buildPastOrderCard(
-          id: order['id'],
-          date: order['date'],
-          total: order['total'],
-          images: order['images'],
-          extraItems: order['extraItems'],
+          id: order['id'] as String,
+          date: order['date'] as String,
+          total: order['total'] as double,
+          images: order['images'] as List<String>,
+          extraItems: order['extraItems'] as int,
         );
       },
     );

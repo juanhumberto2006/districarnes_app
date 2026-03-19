@@ -1,3 +1,5 @@
+import 'product.dart';
+
 class Category {
   final String name;
   final String imageUrl;
